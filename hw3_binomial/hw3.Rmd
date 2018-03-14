@@ -1,0 +1,89 @@
+---
+title: "hw3"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, include=FALSE}
+library(tidyverse)
+library(mosaic)
+library(ggplot2)
+```
+### 1.1
+```{r}
+bin_data <- read_csv("hw3_binomial.csv")
+head(bin_data)
+```
+```{r}
+bin_data <- read_csv("hw3_binomial.csv")
+n <- bin_data$n
+k <- bin_data$k
+prior <- bin_data$prior
+binomial_test <- binom.test(x = k, n = n, p = prior)
+binomial_test
+```
+
+### 1.2
+```{r}
+set.seed(42)
+do(1000)*
+  sum(sample(x = 1:0, 
+             size = n, 
+             prob = c(prior, 1-prior), 
+             replace = TRUE)) ->
+  simulations
+simulations %>% 
+  mutate(greater = sum >= k) %>% 
+  count(greater)
+```
+
+```{r}
+simulations %>% 
+  ggplot(aes(sum))+
+  geom_density(fill = "lightblue")+
+  geom_vline(xintercept = k, linetype = 2)+
+  theme_bw()+
+  labs(title = "Распределение 1000 симуляций с параметрами n = 122, p = 0.324852")
+```
+
+### 1.3
+Приведите среднее апостериорного распределения, используя prior как средние априорного распределения, а n как количество элементов для вычисления апостериорного распределения.
+```{r}
+alpha_prior <- prior * n
+alpha_prior
+```
+```{r}
+beta_prior <- (1-prior) * n
+beta_prior
+```
+```{r}
+alpha_data <- k
+beta_data <- n - k
+
+alpha_post <- alpha_prior + alpha_data
+beta_post <- beta_prior + beta_data
+```
+
+```{r}
+alpha_post/(alpha_post+beta_post)
+```
+
+### 1.4
+Приведите среднее апостериорного распределения, используя неинформативное априорное распределение.
+```{r}
+alpha_prior <- 1
+beta_prior <- 1
+alpha_post <- alpha_prior + alpha_data
+beta_post <- beta_prior + beta_data
+
+```
+```{r}
+alpha_post/(alpha_post+beta_post)
+```
+### 1.5
+Представим, что Вы пишите статью, напишите короткий абзац, который бы обобщал результаты, полученные в предыдущих заданиях. Не забывайте приводить результаты статистических тестов.
+
+По результатам бинарного теста p-value равно 0.699, это означает, что нулевая гипотеза не подтверждается и вероятность количества успехов статистичеки отличается от ожидаемой (0.32485). По данным 1000 симуляций эксперимента при ожидаемой вероятности наблюдаемое число успехов близко к максимуму плотности, но не достигает его. К максимуму плотности ближе большее число успехов. Средние апостериорного распределения, как с информативным, так и с неинформативным априорным распределением (0.3140654 и 0.3064516 соответственно), меньше ожидаемой вероятности. 

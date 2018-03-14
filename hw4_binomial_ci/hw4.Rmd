@@ -1,0 +1,104 @@
+---
+title: "hw4"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, include=FALSE}
+library(tidyverse)
+library(mosaic)
+library(bootstrap)
+library(ggplot2)
+```
+
+### 1.1
+```{r}
+data <- read_csv("hw4_wodehouse.csv")
+head(data)
+```
+```{r}
+data %>% 
+  subset(word == "сэр") %>% 
+   count(chapter)->
+  chapter_count 
+
+data %>%
+  group_by(chapter) %>% 
+  count(chapter) ->
+  num_tokens
+
+chapter_count['num_tokens'] <- num_tokens$n
+chapter_count['average'] <- chapter_count$n/chapter_count$num_tokens
+
+chapter_count %>%
+  mutate(average = n/num_tokens) %>% 
+  arrange(desc(average)) %>% 
+  summarise(g_mean = mean(average)) ->
+  grand_mean
+as_tibble(grand_mean)
+```
+
+### 1.2
+```{r}
+set.seed(42)
+head(chapter_count)
+data_bs <- bootstrap(chapter_count$average, nboot = 10000, theta = mean)$thetastar
+data_bs <- data_frame(means=data_bs)
+
+data_bs %>%
+  summarise(mean = mean(means),
+            q1 = quantile(means, 0.025),
+            q2 = quantile(means, 0.975))->
+  result
+as_tibble(result[,-1])
+```
+### 1.3
+```{r}
+chapter_count %>% 
+  group_by(chapter) %>%
+  mutate(low_ci = binom.test(x = n, n = num_tokens, ci.method = "Clopper-Pearson")$conf.int[1],
+         up_ci = binom.test(x = n, n = num_tokens, ci.method = "Clopper-Pearson")$conf.int[2]) -> chapter_count_bin
+
+chapter_count_bin%>%
+  mutate(size = up_ci - low_ci)-> chapter_count_bin
+
+as_tibble(chapter_count_bin) %>%
+  filter (size == max(chapter_count_bin$size))%>%
+  select(chapter, average, low_ci, up_ci, size)
+
+```
+
+### 1.4
+```{r}
+mu <- mean(chapter_count$average)
+var <- var(chapter_count$average)
+alpha0 <- ((1 - mu) / var - 1 / mu) * mu ^ 2
+beta0 <- alpha0 * (1 / mu - 1)
+chapter_count %>% 
+  group_by(chapter) %>%
+  mutate(alpha_post = n+alpha0,
+         beta_post = num_tokens-n+beta0,
+         average_post = alpha_post/(alpha_post+beta_post),
+         cred_int_l = qbeta(.025, alpha_post, beta_post),
+         cred_int_h = qbeta(.975, alpha_post, beta_post),
+         bayes_ci = cred_int_h - cred_int_l) ->
+  posterior
+
+posterior %>% 
+  select(chapter, num_tokens, average, average_post, bayes_ci) %>% 
+  arrange(num_tokens)
+
+as_tibble(posterior[which.max(posterior$bayes_ci),-7])
+```
+
+### 1.5
+```{r}
+as_tibble(chapter_count_bin[which.min(chapter_count_bin$size),-7])
+```
+### 1.6
+```{r}
+as_tibble(posterior[which.min(posterior$bayes_ci),-7])
+```
